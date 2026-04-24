@@ -23,11 +23,11 @@ dev = [
 ]
 
 [project.scripts]
-scanning-download = "scanning.scripts.download_subset:main"
-scanning-benchmark = "scanning.scripts.run_benchmark:main"
+scanning-download = "download_subset:main"
+scanning-benchmark = "run_benchmark:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+py-modules = ["doclaynet", "glm_ocr", "download_subset", "run_benchmark"]
 
 [tool.ruff]
 line-length = 100

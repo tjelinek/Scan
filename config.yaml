@@ -1,5 +1,5 @@
 # GLM-OCR config — self-hosted via Ollama.
-# Used by src/scanning/glm_ocr.py. Adjust if Ollama runs elsewhere.
+# Used by glm_ocr.py. Adjust if Ollama runs elsewhere.
 
 pipeline:
   maas:

@@ -22,7 +22,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from scanning.doclaynet import TABLE_LABEL, has_table, stream_pages
+from doclaynet import TABLE_LABEL, has_table, stream_pages
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

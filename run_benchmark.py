@@ -15,8 +15,8 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from scanning.doclaynet import load_local_subset
-from scanning.glm_ocr import GLMOCRAdapter
+from doclaynet import load_local_subset
+from glm_ocr import GLMOCRAdapter
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

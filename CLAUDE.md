@@ -15,20 +15,21 @@ for end users.
 
 ## Layout
 
+Flat — top-level modules, no package. The repo doubles as a small experiment
+harness, so simplicity beats packaging ceremony.
+
 ```
-src/scanning/
-  doclaynet.py              — DocLayNet loader (HF streaming + local COCO subset) and filters
-  glm_ocr.py                — GLMOCRAdapter: context-manager wrapper around glmocr.GlmOcr
-  scripts/
-    download_subset.py      — streams val split from HF, filters, saves images + annotations.json
-    run_benchmark.py        — iterates local subset, calls adapter, writes JSONL
-config.yaml                 — glmocr runtime config; points OCR backend at Ollama
-data/                       — gitignored; subset output of download_subset.py
-results/                    — gitignored; JSONL benchmark runs
+doclaynet.py             — DocLayNet loader (HF streaming + local COCO subset) and filters
+glm_ocr.py               — GLMOCRAdapter: context-manager wrapper around glmocr.GlmOcr
+download_subset.py       — streams val split from HF, filters, saves images + annotations.json
+run_benchmark.py         — iterates local subset, calls adapter, writes JSONL
+config.yaml              — glmocr runtime config; points OCR backend at Ollama
+data/                    — gitignored; subset output of download_subset.py
+results/                 — gitignored; JSONL benchmark runs
 ```
 
-Console scripts (declared in `pyproject.toml`): `scanning-download`,
-`scanning-benchmark`.
+Console scripts (declared in `pyproject.toml` under `py-modules`):
+`scanning-download`, `scanning-benchmark`.
 
 ## Architecture decisions worth knowing
 
@@ -68,8 +69,8 @@ ruff check src            # lint
 
 ## When extending this repo
 
-- **Adding a new OCR backend**: build another adapter in `src/scanning/`
-  with the same `__enter__`/`__exit__`/`infer(path) -> OCRPrediction`
+- **Adding a new OCR backend**: drop another adapter module at the repo
+  root with the same `__enter__`/`__exit__`/`infer(path) -> OCRPrediction`
   interface. The benchmark runner can stay generic.
 - **Adding a metric**: the benchmark writes raw predictions to JSONL. A
   separate evaluation step (not yet implemented) should consume that JSONL

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config.yaml"
+DEFAULT_CONFIG = Path(__file__).resolve().parent / "config.yaml"
 
 
 @dataclass
