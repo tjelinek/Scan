@@ -1,0 +1,20 @@
+# GLM-OCR config — self-hosted via Ollama.
+# Used by src/scanning/glm_ocr.py. Adjust if Ollama runs elsewhere.
+
+pipeline:
+  maas:
+    enabled: false          # no cloud API
+  layout:
+    device: cpu             # 4 GB VRAM machines: keep layout off-GPU
+    model_dir: PaddlePaddle/PP-DocLayoutV3_safetensors   # auto-downloads from HF on first use
+  ocr_api:
+    # User-level Ollama runs on :11435 to coexist with any system Ollama on
+    # :11434. See SETUP.md. Override via env (GLMOCR_OCR_API_PORT) if needed.
+    api_host: 127.0.0.1
+    api_port: 11435
+    api_path: /api/generate
+    api_mode: ollama_generate
+    model: glm-ocr:latest
+
+logging:
+  level: INFO

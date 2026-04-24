@@ -2,15 +2,85 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current state
+## What this repo does
 
-The repository is a fresh PyCharm-generated Python 3.12 project. There is no source code, no dependency manifest, and no README yet. The only artifacts are `.idea/` (PyCharm config) and `.venv/` (empty virtualenv with just pip).
+Benchmark harness for running [GLM-OCR](https://github.com/zai-org/GLM-OCR) on
+a filtered subset of [DocLayNet](https://github.com/DS4SD/DocLayNet). Two
+moving parts: a DocLayNet loader/filter, and an adapter that wraps the
+`glmocr` SDK so the benchmark runner doesn't touch SDK internals.
 
-## Environment
+Full install + fresh-machine instructions (and a dated change log) live in
+[SETUP.md](SETUP.md). This file is for orienting future Claude sessions, not
+for end users.
 
-- Python 3.12, virtualenv at `.venv/`. Activate with `source .venv/bin/activate`.
-- No dependencies installed beyond pip. No build, test, or lint tooling configured.
+## Layout
+
+```
+src/scanning/
+  doclaynet.py              — DocLayNet loader (HF streaming + local COCO subset) and filters
+  glm_ocr.py                — GLMOCRAdapter: context-manager wrapper around glmocr.GlmOcr
+  scripts/
+    download_subset.py      — streams val split from HF, filters, saves images + annotations.json
+    run_benchmark.py        — iterates local subset, calls adapter, writes JSONL
+config.yaml                 — glmocr runtime config; points OCR backend at Ollama
+data/                       — gitignored; subset output of download_subset.py
+results/                    — gitignored; JSONL benchmark runs
+```
+
+Console scripts (declared in `pyproject.toml`): `scanning-download`,
+`scanning-benchmark`.
+
+## Architecture decisions worth knowing
+
+- **OCR backend is Ollama, not vLLM.** `glmocr[selfhosted]` expects an
+  external HTTP service for the OCR model. The dev machine has 4 GB VRAM, so
+  vLLM is a non-starter; Ollama's quantized `glm-ocr:latest` fits. The SDK
+  has native Ollama support via `api_mode: ollama_generate` — wired up in
+  `config.yaml`.
+- **Layout model runs on CPU.** Set in `config.yaml`
+  (`pipeline.layout.device: cpu`). On machines with more VRAM, change to
+  `cuda`.
+- **DocLayNet is streamed from HuggingFace**, never downloaded as the 28 GB
+  S3 zip. The downloader filters *before* saving, so a no-tables subset of
+  200 pages stays under ~1 GB.
+- **Category mapping is read at runtime** from the HF feature schema (or the
+  COCO `categories` list in a saved subset). Do not hardcode numeric ids —
+  upstream ordering has changed before.
+
+## Common commands
+
+```bash
+# setup (once)
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+ollama pull glm-ocr
+
+# download a 200-page no-tables subset (val split)
+scanning-download --split validation --max-pages 200 --no-tables
+
+# run the benchmark (needs Ollama serving on :11434)
+scanning-benchmark --data-dir data --out results/run.jsonl
+
+# dev
+pytest                    # tests live alongside src as they're added
+ruff check src            # lint
+```
+
+## When extending this repo
+
+- **Adding a new OCR backend**: build another adapter in `src/scanning/`
+  with the same `__enter__`/`__exit__`/`infer(path) -> OCRPrediction`
+  interface. The benchmark runner can stay generic.
+- **Adding a metric**: the benchmark writes raw predictions to JSONL. A
+  separate evaluation step (not yet implemented) should consume that JSONL
+  plus the subset's `annotations.json`. Keep benchmarking and scoring
+  separate so scoring can be iterated without re-running the model.
+- **Schema surprises**: if HF changes the DocLayNet schema,
+  `_example_to_page` in `doclaynet.py` is the single place that flattens the
+  upstream shape. Fix it there, not at call sites.
 
 ## Maintenance
 
-This file should be updated continuously as the project takes shape. When new information arrives — dependencies added, a package manifest created, source modules introduced, a README written, testing/lint commands chosen, architectural decisions made — revise the relevant section (or add new ones) rather than leaving this stub in place.
+Update this file when the architecture changes (new adapter, new backend,
+new stage in the pipeline). For install/environment changes, update
+`SETUP.md` and add a dated entry to its Changelog.
