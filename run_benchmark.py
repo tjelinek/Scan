@@ -1,8 +1,8 @@
 """Run the GLM-OCR adapter over a local DocLayNet subset and write results.
 
-Usage (after ``scanning-download ...`` has populated ``data/``)::
-
-    scanning-benchmark --data-dir data --out results/run.jsonl
+Defaults work out-of-the-box once ``scanning-download`` has populated
+``data/`` — just run ``scanning-benchmark`` and a timestamped JSONL lands
+under ``results/``.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from tqdm import tqdm
@@ -19,13 +20,25 @@ from doclaynet import load_local_subset
 from glm_ocr import GLMOCRAdapter
 
 
+def _default_out() -> Path:
+    return Path("results") / f"run-{datetime.now():%Y%m%d-%H%M%S}.jsonl"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data-dir", type=Path, default=Path("data"))
-    p.add_argument("--out", type=Path, required=True)
+    p.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="output JSONL path (default: results/run-<timestamp>.jsonl)",
+    )
     p.add_argument("--limit", type=int, default=None, help="process at most N pages")
     p.add_argument("--config", type=Path, default=None, help="glmocr config.yaml override")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if args.out is None:
+        args.out = _default_out()
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
