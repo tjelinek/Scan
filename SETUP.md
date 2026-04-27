@@ -88,19 +88,42 @@ access and copy it across.
 before each OCR call. This dev machine has no HuggingFace access at
 runtime, so the model files are staged on disk and loaded with
 `HF_HUB_OFFLINE=1` (set automatically by `glm_ocr.py`). On a machine that
-*does* have HF access, fetch the snapshot and copy the resulting
-directory across:
+*does* have HF access (or a browser), fetch the files and copy the
+resulting directory across.
+
+Repo page (browser fallback): <https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_safetensors>
+
+### Option 1 — `hf` CLI (preferred when available)
 
 ```bash
-# On a connected machine — model is ~80 MB.
 hf download PaddlePaddle/PP-DocLayoutV3_safetensors \
   --local-dir models/PP-DocLayoutV3
-# Then scp/rsync the whole models/ folder onto this machine.
 ```
 
-`config.yaml` already points `pipeline.layout.model_dir` at
-`models/PP-DocLayoutV3` (relative to the repo root). Override the path
-there if you stage it elsewhere — absolute paths are honoured.
+### Option 2 — plain `curl` (no API client)
+
+Three files are enough for `transformers.from_pretrained`; total ~127 MB
+(the weights). `-L` is required because `model.safetensors` 302-redirects
+to HF's CDN.
+
+```bash
+mkdir -p models/PP-DocLayoutV3
+cd models/PP-DocLayoutV3
+BASE=https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_safetensors/resolve/main
+for f in config.json preprocessor_config.json model.safetensors; do
+  curl -fL -o "$f" "$BASE/$f"
+done
+```
+
+Direct link to the weights file alone (browser-friendly):
+<https://huggingface.co/PaddlePaddle/PP-DocLayoutV3_safetensors/resolve/main/model.safetensors>
+
+### After fetching
+
+scp/rsync the whole `models/` folder onto this machine. `config.yaml`
+already points `pipeline.layout.model_dir` at `models/PP-DocLayoutV3`
+(relative to the repo root). Override the path there if you stage it
+elsewhere — absolute paths are honoured.
 
 The benchmark errors out with a clear "Layout model not found at …"
 message if `models/PP-DocLayoutV3/config.json` is missing, instead of
