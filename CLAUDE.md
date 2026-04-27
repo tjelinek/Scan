@@ -43,6 +43,13 @@ Console scripts (declared in `pyproject.toml` under `py-modules`):
 - **Layout model runs on CPU.** Set in `config.yaml`
   (`pipeline.layout.device: cpu`). On machines with more VRAM, change to
   `cuda`.
+- **Fully offline at runtime.** `glm_ocr.GLMOCRAdapter` sets
+  `HF_HUB_OFFLINE=1` + `TRANSFORMERS_OFFLINE=1` before importing `glmocr`,
+  and `pipeline.layout.model_dir` points at a local snapshot of
+  `PaddlePaddle/PP-DocLayoutV3_safetensors` under `models/`. The adapter
+  validates `<model_dir>/config.json` up front so a missing snapshot
+  errors fast with a clear pointer to SETUP.md instead of hanging on a
+  network call.
 - **DocLayNet is loaded from a locally-extracted `DocLayNet_core.zip`**, not
   HuggingFace. The dev environment can't reach HF, so the prep script reads
   `<source>/COCO/<split>.json` + `<source>/PNG/` and symlinks the kept PNGs

@@ -82,6 +82,30 @@ access and copy it across.
    `data/` is gitignored. Any other location works too — pass it via
    `--source`.
 
+## Stage the layout model
+
+`glmocr` runs `PaddlePaddle/PP-DocLayoutV3_safetensors` to crop regions
+before each OCR call. This dev machine has no HuggingFace access at
+runtime, so the model files are staged on disk and loaded with
+`HF_HUB_OFFLINE=1` (set automatically by `glm_ocr.py`). On a machine that
+*does* have HF access, fetch the snapshot and copy the resulting
+directory across:
+
+```bash
+# On a connected machine — model is ~80 MB.
+hf download PaddlePaddle/PP-DocLayoutV3_safetensors \
+  --local-dir models/PP-DocLayoutV3
+# Then scp/rsync the whole models/ folder onto this machine.
+```
+
+`config.yaml` already points `pipeline.layout.model_dir` at
+`models/PP-DocLayoutV3` (relative to the repo root). Override the path
+there if you stage it elsewhere — absolute paths are honoured.
+
+The benchmark errors out with a clear "Layout model not found at …"
+message if `models/PP-DocLayoutV3/config.json` is missing, instead of
+hanging on a network call.
+
 ## Build the working subset
 
 ```bash
@@ -148,3 +172,11 @@ and the predicted layout JSON.
   removed from dependencies. `download_subset.py` renamed to
   `prepare_subset.py`; console script `scanning-download` →
   `scanning-prepare`. Default `--source` is `data/raw/DocLayNet_core`.
+- **2026-04-27** — Layout model is now loaded from a local snapshot
+  instead of HF on first use. `config.yaml`'s
+  `pipeline.layout.model_dir` defaults to `models/PP-DocLayoutV3`
+  (gitignored). `glm_ocr.GLMOCRAdapter` sets `HF_HUB_OFFLINE=1` and
+  `TRANSFORMERS_OFFLINE=1` before importing `glmocr`, and validates that
+  `<model_dir>/config.json` exists up front so a missing snapshot fails
+  fast with a pointer to this section instead of hanging on a network
+  call.
