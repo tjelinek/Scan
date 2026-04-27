@@ -1,6 +1,6 @@
 """Run the GLM-OCR adapter over a local DocLayNet subset and write results.
 
-Defaults work out-of-the-box once ``scanning-download`` has populated
+Defaults work out-of-the-box once ``scanning-prepare`` has populated
 ``data/`` — just run ``scanning-benchmark`` and a timestamped JSONL lands
 under ``results/``.
 """

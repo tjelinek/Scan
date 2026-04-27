@@ -14,8 +14,9 @@ decisions and changes — append entries instead of rewriting history.
   detection on CPU and rely on Ollama to offload OCR weights as needed. With
   an 8 GB+ GPU you can move layout to CUDA for speed.
 - **Disk:** budget ~6–8 GB for Python deps + layout model, ~2 GB for the
-  Ollama OCR model, ~1 GB for the DocLayNet subset. More if you expand the
-  subset.
+  Ollama OCR model, ~30 GB for the extracted `DocLayNet_core` (PNG + COCO).
+  The working subset under `data/images/` is symlinked into the extracted
+  PNGs and adds essentially no disk.
 
 ## One-time setup
 
@@ -62,22 +63,43 @@ ollama pull glm-ocr       # uses default :11434
 
 Then change `config.yaml`: set `ocr_api.api_port: 11434`.
 
-## Download a DocLayNet subset
+## Get DocLayNet locally
+
+The dev machine has no direct HuggingFace access, so we use the official IBM
+zip release rather than streaming. Download once on a machine with network
+access and copy it across.
+
+1. Grab `DocLayNet_core.zip` (~28 GB) from the [DocLayNet README's Download
+   section](https://github.com/DS4SD/DocLayNet#downloads). Only `_core` is
+   used; `DocLayNet_extra.zip` (per-page JSON + PDFs) isn't needed for the
+   benchmark.
+2. Extract it so the layout is:
+   ```
+   data/raw/DocLayNet_core/
+     COCO/{train,val,test}.json
+     PNG/*.png
+   ```
+   `data/` is gitignored. Any other location works too — pass it via
+   `--source`.
+
+## Build the working subset
 
 ```bash
-# Streams val split from HuggingFace, filters out pages containing tables,
-# and saves N images + a COCO-style annotations file under data/.
-scanning-download --split validation --max-pages 200 --no-tables
+# Reads <source>/COCO/val.json, drops pages containing tables, links the
+# first 200 PNGs into data/images/, and writes data/annotations.json.
+scanning-prepare --split validation --max-pages 200 --no-tables
+# or with a non-default source:
+scanning-prepare --source ~/datasets/DocLayNet_core --max-pages 200 --no-tables
 ```
 
-The subset lives under `data/` (gitignored). Re-running is idempotent — it
-skips files already on disk.
+PNGs are symlinked rather than copied (falls back to copy if the filesystem
+disallows symlinks), so the subset stays small.
 
 ## Run the benchmark
 
 ```bash
-# Assumes Ollama is up and the subset has been downloaded.
-scanning-benchmark --data-dir data --out results/run-$(date +%F).jsonl
+# Assumes Ollama is up and `scanning-prepare` has populated data/.
+scanning-benchmark             # --out defaults to results/run-<timestamp>.jsonl
 ```
 
 Each output record contains the page id, elapsed time, the model's markdown,
@@ -120,3 +142,9 @@ and the predicted layout JSON.
   to `~/.local`, server runs on **port 11435** so it coexists with any
   system Ollama on :11434. `config.yaml` defaults to :11435. Ollama 0.21.2
   is the version used for development; upgrade the tarball opportunistically.
+- **2026-04-27** — Dropped HuggingFace streaming. The dev environment has
+  no direct HF access, so the loader now reads the official IBM
+  `DocLayNet_core.zip` (PNG + COCO) from disk. `datasets` and `requests`
+  removed from dependencies. `download_subset.py` renamed to
+  `prepare_subset.py`; console script `scanning-download` →
+  `scanning-prepare`. Default `--source` is `data/raw/DocLayNet_core`.

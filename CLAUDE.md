@@ -19,17 +19,18 @@ Flat — top-level modules, no package. The repo doubles as a small experiment
 harness, so simplicity beats packaging ceremony.
 
 ```
-doclaynet.py             — DocLayNet loader (HF streaming + local COCO subset) and filters
+doclaynet.py             — DocLayNet loader (raw COCO + local subset) and filters
 glm_ocr.py               — GLMOCRAdapter: context-manager wrapper around glmocr.GlmOcr
-download_subset.py       — streams val split from HF, filters, saves images + annotations.json
+prepare_subset.py        — reads extracted DocLayNet_core, filters, writes data/ subset
 run_benchmark.py         — iterates local subset, calls adapter, writes JSONL
 config.yaml              — glmocr runtime config; points OCR backend at Ollama
-data/                    — gitignored; subset output of download_subset.py
+data/raw/                — gitignored; extracted DocLayNet_core/ (PNG + COCO)
+data/                    — gitignored; subset output of prepare_subset.py
 results/                 — gitignored; JSONL benchmark runs
 ```
 
 Console scripts (declared in `pyproject.toml` under `py-modules`):
-`scanning-download`, `scanning-benchmark`.
+`scanning-prepare`, `scanning-benchmark`.
 
 ## Architecture decisions worth knowing
 
@@ -41,12 +42,14 @@ Console scripts (declared in `pyproject.toml` under `py-modules`):
 - **Layout model runs on CPU.** Set in `config.yaml`
   (`pipeline.layout.device: cpu`). On machines with more VRAM, change to
   `cuda`.
-- **DocLayNet is streamed from HuggingFace**, never downloaded as the 28 GB
-  S3 zip. The downloader filters *before* saving, so a no-tables subset of
-  200 pages stays under ~1 GB.
-- **Category mapping is read at runtime** from the HF feature schema (or the
-  COCO `categories` list in a saved subset). Do not hardcode numeric ids —
-  upstream ordering has changed before.
+- **DocLayNet is loaded from a locally-extracted `DocLayNet_core.zip`**, not
+  HuggingFace. The dev environment can't reach HF, so the prep script reads
+  `<source>/COCO/<split>.json` + `<source>/PNG/` and symlinks the kept PNGs
+  into `data/images/`. The 28 GB raw archive sits under `data/raw/` (or
+  wherever `--source` points); the working subset is just symlinks +
+  `annotations.json`.
+- **Category mapping is read at runtime** from the COCO `categories` list.
+  Do not hardcode numeric ids — upstream ordering has changed before.
 
 ## Common commands
 
@@ -56,15 +59,16 @@ python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ollama pull glm-ocr
 
-# download a 200-page no-tables subset (val split)
-scanning-download --split validation --max-pages 200 --no-tables
+# extract DocLayNet_core.zip into data/raw/ first (see SETUP.md)
+# build a 200-page no-tables subset (val split)
+scanning-prepare --split validation --max-pages 200 --no-tables
 
-# run the benchmark (needs Ollama serving on :11434)
-scanning-benchmark --data-dir data --out results/run.jsonl
+# run the benchmark (needs Ollama serving on :11435)
+scanning-benchmark        # --out defaults to results/run-<timestamp>.jsonl
 
 # dev
-pytest                    # tests live alongside src as they're added
-ruff check src            # lint
+pytest                    # tests live alongside modules as they're added
+ruff check .              # lint
 ```
 
 ## When extending this repo
@@ -76,9 +80,9 @@ ruff check src            # lint
   separate evaluation step (not yet implemented) should consume that JSONL
   plus the subset's `annotations.json`. Keep benchmarking and scoring
   separate so scoring can be iterated without re-running the model.
-- **Schema surprises**: if HF changes the DocLayNet schema,
-  `_example_to_page` in `doclaynet.py` is the single place that flattens the
-  upstream shape. Fix it there, not at call sites.
+- **Schema surprises**: COCO files from `DocLayNet_core` are flattened by
+  `_coco_to_pages` in `doclaynet.py`. If a future release changes the field
+  shape, fix it there, not at call sites.
 
 ## Maintenance
 

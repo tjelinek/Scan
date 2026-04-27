@@ -10,10 +10,8 @@ readme = "CLAUDE.md"
 requires-python = ">=3.12"
 dependencies = [
     "glmocr[selfhosted]>=0.1.5",
-    "datasets>=3.0,<4.0",    # 4.x removed script loaders; DocLayNet still ships as a script
     "pillow>=10",
     "tqdm>=4.66",
-    "requests>=2.32",
 ]
 
 [project.optional-dependencies]
@@ -23,11 +21,11 @@ dev = [
 ]
 
 [project.scripts]
-scanning-download = "download_subset:main"
+scanning-prepare = "prepare_subset:main"
 scanning-benchmark = "run_benchmark:main"
 
 [tool.setuptools]
-py-modules = ["doclaynet", "glm_ocr", "download_subset", "run_benchmark"]
+py-modules = ["doclaynet", "glm_ocr", "prepare_subset", "run_benchmark"]
 
 [tool.ruff]
 line-length = 100

@@ -1,45 +1,82 @@
-"""Download a filtered DocLayNet subset from HuggingFace.
+"""Build a filtered subset from a locally-extracted DocLayNet_core.
 
-Streams the requested split, applies a filter (default: drop any page whose
-annotations contain a Table), and saves the first ``--max-pages`` that pass
-under ``--out``:
-
-    out/
-      images/<file_name>.png
-      annotations.json        # COCO-style
+Reads ``<source>/COCO/<split>.json``, applies a filter (default: drop pages
+whose annotations contain a Table), and links the matching PNGs from
+``<source>/PNG/`` into ``<out>/images/``. Writes a slimmed COCO file at
+``<out>/annotations.json`` so the benchmark runner can read the subset back.
 
 Run via the console script defined in pyproject.toml::
 
-    scanning-download --split validation --max-pages 200 --no-tables
+    scanning-prepare --split validation --max-pages 200 --no-tables
+
+The dev machine has no direct HuggingFace access, so the data has to be
+fetched manually from https://github.com/DS4SD/DocLayNet#downloads —
+``DocLayNet_core.zip`` is what we need (PNG + COCO). ``DocLayNet_extra.zip``
+(per-page JSON + PDFs) is unused so far.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import sys
 from pathlib import Path
 
 from tqdm import tqdm
 
-from doclaynet import TABLE_LABEL, has_table, stream_pages
+from doclaynet import (
+    DEFAULT_SOURCE,
+    SPLIT_FILES,
+    TABLE_LABEL,
+    has_table,
+    iter_coco_pages,
+)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--split", default="validation", choices=["train", "validation", "test"])
+    p.add_argument(
+        "--source",
+        type=Path,
+        default=DEFAULT_SOURCE,
+        help=f"extracted DocLayNet_core directory (default: {DEFAULT_SOURCE})",
+    )
+    p.add_argument("--split", default="validation", choices=sorted(SPLIT_FILES))
     p.add_argument("--max-pages", type=int, default=200)
-    p.add_argument("--no-tables", action="store_true", help=f"drop pages containing '{TABLE_LABEL}'")
+    p.add_argument(
+        "--no-tables", action="store_true", help=f"drop pages containing '{TABLE_LABEL}'"
+    )
     p.add_argument("--out", type=Path, default=Path("data"))
-    p.add_argument("--repo-id", default="ds4sd/DocLayNet")
     return p.parse_args(argv)
+
+
+def _link_or_copy(src: Path, dst: Path) -> None:
+    if dst.exists() or dst.is_symlink():
+        return
+    try:
+        os.symlink(src.resolve(), dst)
+    except OSError:
+        shutil.copyfile(src, dst)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+
+    coco_dir = args.source / "COCO"
+    png_dir = args.source / "PNG"
+    if not coco_dir.is_dir() or not png_dir.is_dir():
+        print(
+            f"Expected DocLayNet_core layout at {args.source} "
+            f"(missing COCO/ or PNG/). Extract DocLayNet_core.zip there.",
+            file=sys.stderr,
+        )
+        return 1
+
     args.out.mkdir(parents=True, exist_ok=True)
-    img_dir = args.out / "images"
-    img_dir.mkdir(exist_ok=True)
+    img_out = args.out / "images"
+    img_out.mkdir(exist_ok=True)
 
     kept_images: list[dict] = []
     kept_anns: list[dict] = []
@@ -48,14 +85,16 @@ def main(argv: list[str] | None = None) -> int:
 
     pbar = tqdm(total=args.max_pages, desc="pages kept", unit="page")
     scanned = 0
-    for page, image in stream_pages(split=args.split, repo_id=args.repo_id):
+    for page in iter_coco_pages(args.source, split=args.split):
         scanned += 1
         if args.no_tables and has_table(page):
             continue
 
-        img_path = img_dir / page.file_name
-        if not img_path.exists():
-            image.save(img_path)
+        src_img = png_dir / page.file_name
+        if not src_img.exists():
+            tqdm.write(f"missing image, skipping: {src_img}")
+            continue
+        _link_or_copy(src_img, img_out / page.file_name)
 
         kept_images.append(
             {
@@ -86,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
 
     coco = {
         "info": {
-            "source": args.repo_id,
+            "source": str(args.source),
             "split": args.split,
             "filter": "no_tables" if args.no_tables else "none",
             "scanned": scanned,
