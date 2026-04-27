@@ -23,6 +23,7 @@ doclaynet.py             — DocLayNet loader (raw COCO + local subset) and filt
 glm_ocr.py               — GLMOCRAdapter: context-manager wrapper around glmocr.GlmOcr
 prepare_subset.py        — reads extracted DocLayNet_core, filters, writes data/ subset
 run_benchmark.py         — iterates local subset, calls adapter, writes JSONL
+visualize_subset.py      — emits a self-contained HTML viewer for the subset
 config.yaml              — glmocr runtime config; points OCR backend at Ollama
 data/raw/                — gitignored; extracted DocLayNet_core/ (PNG + COCO)
 data/                    — gitignored; subset output of prepare_subset.py
@@ -30,7 +31,7 @@ results/                 — gitignored; JSONL benchmark runs
 ```
 
 Console scripts (declared in `pyproject.toml` under `py-modules`):
-`scanning-prepare`, `scanning-benchmark`.
+`scanning-prepare`, `scanning-benchmark`, `scanning-view`.
 
 ## Architecture decisions worth knowing
 
@@ -65,6 +66,9 @@ scanning-prepare --split validation --max-pages 200 --no-tables
 
 # run the benchmark (needs Ollama serving on :11435)
 scanning-benchmark        # --out defaults to results/run-<timestamp>.jsonl
+
+# eyeball the subset (writes data/index.html, opens in your browser)
+scanning-view --open
 
 # dev
 pytest                    # tests live alongside modules as they're added

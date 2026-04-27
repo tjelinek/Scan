@@ -23,9 +23,10 @@ dev = [
 [project.scripts]
 scanning-prepare = "prepare_subset:main"
 scanning-benchmark = "run_benchmark:main"
+scanning-view = "visualize_subset:main"
 
 [tool.setuptools]
-py-modules = ["doclaynet", "glm_ocr", "prepare_subset", "run_benchmark"]
+py-modules = ["doclaynet", "glm_ocr", "prepare_subset", "run_benchmark", "visualize_subset"]
 
 [tool.ruff]
 line-length = 100
