@@ -12,6 +12,7 @@ dependencies = [
     "glmocr[selfhosted]>=0.1.5",
     "pillow>=10",
     "tqdm>=4.66",
+    "pycocotools>=2.0.7",   # COCO-style mAP for scanning-evaluate
 ]
 
 [project.optional-dependencies]
@@ -24,9 +25,17 @@ dev = [
 scanning-prepare = "prepare_subset:main"
 scanning-benchmark = "run_benchmark:main"
 scanning-view = "visualize_subset:main"
+scanning-evaluate = "evaluate_run:main"
 
 [tool.setuptools]
-py-modules = ["doclaynet", "glm_ocr", "prepare_subset", "run_benchmark", "visualize_subset"]
+py-modules = [
+    "doclaynet",
+    "glm_ocr",
+    "prepare_subset",
+    "run_benchmark",
+    "visualize_subset",
+    "evaluate_run",
+]
 
 [tool.ruff]
 line-length = 100

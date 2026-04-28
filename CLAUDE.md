@@ -23,7 +23,8 @@ doclaynet.py             — DocLayNet loader (raw COCO + local subset) and filt
 glm_ocr.py               — GLMOCRAdapter: context-manager wrapper around glmocr.GlmOcr
 prepare_subset.py        — reads extracted DocLayNet_core, filters, writes data/ subset
 run_benchmark.py         — iterates local subset, calls adapter, writes JSONL
-visualize_subset.py      — emits a self-contained HTML viewer for the subset
+evaluate_run.py          — pycocotools mAP scorer + DEFAULT_CLASS_MAP (PP-DocLayoutV3 → DocLayNet)
+visualize_subset.py      — emits a self-contained HTML viewer (GT + optional pred overlay)
 config.yaml              — glmocr runtime config; points OCR backend at Ollama
 data/raw/                — gitignored; extracted DocLayNet_core/ (PNG + COCO)
 data/                    — gitignored; subset output of prepare_subset.py
@@ -31,7 +32,7 @@ results/                 — gitignored; JSONL benchmark runs
 ```
 
 Console scripts (declared in `pyproject.toml` under `py-modules`):
-`scanning-prepare`, `scanning-benchmark`, `scanning-view`.
+`scanning-prepare`, `scanning-benchmark`, `scanning-view`, `scanning-evaluate`.
 
 ## Architecture decisions worth knowing
 
@@ -76,6 +77,11 @@ scanning-benchmark        # --out defaults to results/run-<timestamp>.jsonl
 
 # eyeball the subset (writes data/index.html, opens in your browser)
 scanning-view --open
+# overlay a benchmark run on the GT (dashed boxes + predicted markdown)
+scanning-view --predictions results/run-<timestamp>.jsonl --open
+
+# score a benchmark run against GT (mAP via pycocotools)
+scanning-evaluate          # newest results/*.jsonl by default
 
 # dev
 pytest                    # tests live alongside modules as they're added
@@ -87,10 +93,17 @@ ruff check .              # lint
 - **Adding a new OCR backend**: drop another adapter module at the repo
   root with the same `__enter__`/`__exit__`/`infer(path) -> OCRPrediction`
   interface. The benchmark runner can stay generic.
-- **Adding a metric**: the benchmark writes raw predictions to JSONL. A
-  separate evaluation step (not yet implemented) should consume that JSONL
-  plus the subset's `annotations.json`. Keep benchmarking and scoring
-  separate so scoring can be iterated without re-running the model.
+- **Adding a metric**: scoring lives in `evaluate_run.py` and consumes
+  `results/*.jsonl` + `data/annotations.json` — completely independent
+  of `run_benchmark.py`. Add new metrics there. Predictions are scored
+  with a uniform confidence of 1.0 (the SDK strips per-region scores
+  after threshold-filtering), so reported mAP is **not** comparable to
+  leaderboard numbers — useful for relative A/B between runs only. To
+  fix this properly, plumb the score through `glm_ocr.GLMOCRAdapter`.
+- **Class mapping** between PP-DocLayoutV3 (25 classes) and DocLayNet
+  (11) lives in `evaluate_run.DEFAULT_CLASS_MAP`. The viewer imports it
+  too, so legends stay consistent. DocLayNet's `List-item` has no
+  PP-DocLayoutV3 counterpart — known mismatch, recall on it is always 0.
 - **Schema surprises**: COCO files from `DocLayNet_core` are flattened by
   `_coco_to_pages` in `doclaynet.py`. If a future release changes the field
   shape, fix it there, not at call sites.

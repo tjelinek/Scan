@@ -108,12 +108,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         for ann in page.annotations:
             categories.setdefault(ann.category_id, ann.category_name)
+            x, y, w, h = ann.bbox
             kept_anns.append(
                 {
                     "id": ann_uid,
                     "image_id": page.image_id,
                     "category_id": ann.category_id,
-                    "bbox": list(ann.bbox),
+                    "bbox": [x, y, w, h],
+                    "area": float(w) * float(h),
+                    "iscrowd": 0,
                 }
             )
             ann_uid += 1
