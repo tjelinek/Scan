@@ -11,6 +11,47 @@ pipeline:
     # model files under models/ on a connected machine and copy them over.
     # See SETUP.md → "Stage the layout model" for the fetch command.
     model_dir: models/PP-DocLayoutV3
+
+    # Route each PP-DocLayoutV3 class to an OCR task. Without this, the SDK
+    # warns "label_task_mapping is missing; defaulting all labels to text"
+    # and routes tables / formulas / page furniture through the plain-text
+    # prompt (degrades output quality). Mapping mirrors the SDK's bundled
+    # example at glmocr/config.yaml — keep in sync if upstream renames a
+    # class. Buckets:
+    #   text/table/formula — OCR with the corresponding prompt
+    #   skip               — keep region in output, don't OCR
+    #   abandon            — drop region entirely
+    label_task_mapping:
+      text:
+        - abstract
+        - algorithm
+        - content
+        - doc_title
+        - figure_title
+        - paragraph_title
+        - reference_content
+        - text
+        - vertical_text
+        - vision_footnote
+        - seal
+        - formula_number
+      table:
+        - table
+      formula:
+        - display_formula
+        - inline_formula
+      skip:
+        - chart
+        - image
+      abandon:
+        - header
+        - footer
+        - number
+        - footnote
+        - aside_text
+        - reference
+        - footer_image
+        - header_image
   ocr_api:
     # User-level Ollama runs on :11435 to coexist with any system Ollama on
     # :11434. See SETUP.md. Override via env (GLMOCR_OCR_API_PORT) if needed.
